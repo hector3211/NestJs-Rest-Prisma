@@ -21,8 +21,12 @@ import { User as UserModal, Task as TaskModal } from '@prisma/client';
 import { AuthService } from './auth/auth.service';
 import { AuthGuard } from './auth/auth.guard';
 import { Request, Response } from 'express';
+import { MyThrottlerGuard } from './throttle.guard';
+import { ApiBearerAuth, ApiBody } from '@nestjs/swagger';
+import { TaskSchema, UserSchema } from './swaggerSchemas/schemas';
 
 @Controller()
+@UseGuards(MyThrottlerGuard)
 export class AppController {
   private readonly logger = new Logger(AuthService.name);
   constructor(
@@ -30,12 +34,6 @@ export class AppController {
     private readonly taskService: TaskService,
     private readonly authService: AuthService,
   ) {}
-
-  // @Get()
-  // @Render('index')
-  // root() {
-  //   return;
-  // }
 
   // ---------------------------- Authentication
   @Post('auth/login/:userEmail')
@@ -54,7 +52,6 @@ export class AppController {
   @Get('users')
   async getAllUsers(@Req() req: Request): Promise<UserModal[] | null> {
     const token = req.cookies['authenticated'];
-    console.log(token);
     if (!token) {
       throw new UnauthorizedException('Token Error! Not Correct token');
     }
@@ -67,8 +64,9 @@ export class AppController {
     return query;
   }
 
-  @UseGuards(AuthGuard)
   @Get('user/:userEmail')
+  @ApiBearerAuth('JWT')
+  @UseGuards(AuthGuard)
   async getUser(
     @Param('userEmail') userEmail: string,
   ): Promise<UserModal | null> {
@@ -84,8 +82,12 @@ export class AppController {
   }
 
   @Post('user')
+  @ApiBody({
+    type: UserSchema,
+    description: `Please fill out in JSON format "name" and "email"`,
+  })
   async createUser(
-    @Body() userData: { email: string; name: string; role: string },
+    @Body() userData: { email: string; name: string },
   ): Promise<UserModal | null> {
     const query = await this.userService.createUser(userData);
 
@@ -109,6 +111,8 @@ export class AppController {
     return query;
   }
 
+  @ApiBearerAuth('JWT')
+  @UseGuards(AuthGuard)
   @Delete('user/:userId')
   async deleteUser(
     @Param('userId') userId: string,
@@ -154,9 +158,11 @@ export class AppController {
   }
 
   @Post('task')
-  async createTask(
-    @Body() taskData: { content: string; completed: boolean; authorId: number },
-  ): Promise<TaskModal | null> {
+  @ApiBody({
+    type: TaskSchema,
+    description: `Please fill out in JSON format "content", "completed", and "authorId"`,
+  })
+  async createTask(@Body() taskData: TaskSchema): Promise<TaskModal | null> {
     const { content, completed, authorId } = taskData;
     const query = await this.taskService.createTask({
       content,
@@ -192,6 +198,8 @@ export class AppController {
     return query;
   }
 
+  @ApiBearerAuth('JWT')
+  @UseGuards(AuthGuard)
   @Delete('task/:taskId')
   async DeleteTask(
     @Param('taskId') taskId: string,

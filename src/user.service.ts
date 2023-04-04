@@ -13,11 +13,18 @@ export class UserService {
   async getUser(userEmail: Prisma.UserWhereUniqueInput): Promise<User | null> {
     return this.prisma.user.findUnique({
       where: userEmail,
+      include: {
+        tasks: true,
+      },
     });
   }
 
   async getAllUsers(): Promise<User[]> {
-    return this.prisma.user.findMany();
+    return this.prisma.user.findMany({
+      include: {
+        tasks: true,
+      },
+    });
   }
 
   async createUser(data: Prisma.UserCreateInput): Promise<User> {

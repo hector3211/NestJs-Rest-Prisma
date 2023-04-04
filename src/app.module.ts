@@ -9,6 +9,7 @@ import { JwtModule } from '@nestjs/jwt';
 import { jwtConstants } from './auth/constants';
 import { PassportModule } from '@nestjs/passport';
 import * as dotenv from 'dotenv';
+import { ThrottlerModule } from '@nestjs/throttler';
 dotenv.config();
 
 @Module({
@@ -17,9 +18,14 @@ dotenv.config();
     JwtModule.registerAsync({
       useFactory: () => ({
         global: true,
-        secret: jwtConstants.secret || 'secret-key',
-        // secretOrPrivateKey: process.env.JWT_SECRET || 'secret-key',
+        secret: jwtConstants.secret,
         signOptions: { expiresIn: '1d' },
+      }),
+    }),
+    ThrottlerModule.forRootAsync({
+      useFactory: () => ({
+        ttl: 60,
+        limit: 10,
       }),
     }),
   ],
