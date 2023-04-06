@@ -49,13 +49,22 @@ export class AppController {
   }
 
   // ---------------------------- Users
+  // @Get('users')
+  // async getAllUsers(@Req() req: Request): Promise<UserModal[] | null> {
+  //   const token = req.cookies['authenticated'];
+  //   if (!token) {
+  //     throw new UnauthorizedException('Token Error! Not Correct token');
+  //   }
+  //
+  //   const query = await this.userService.getAllUsers();
+  //   if (!query) {
+  //     throw new NotFoundException(`Error getting all users!`);
+  //   }
+  //
+  //   return query;
+  // }
   @Get('users')
-  async getAllUsers(@Req() req: Request): Promise<UserModal[] | null> {
-    const token = req.cookies['authenticated'];
-    if (!token) {
-      throw new UnauthorizedException('Token Error! Not Correct token');
-    }
-
+  async getAllUsers(): Promise<UserModal[] | null> {
     const query = await this.userService.getAllUsers();
     if (!query) {
       throw new NotFoundException(`Error getting all users!`);
