@@ -9,7 +9,6 @@ import {
   Param,
   Post,
   Put,
-  Logger,
   UseGuards,
   UnauthorizedException,
   Res,
@@ -28,7 +27,9 @@ import { TaskSchema, UserSchema } from './swaggerSchemas/schemas';
 @Controller()
 @UseGuards(MyThrottlerGuard)
 export class AppController {
-  private readonly logger = new Logger(AuthService.name);
+  private readonly adminRole = process.env.MAIN_ROLE;
+  private readonly adminEmail = process.env.MAIN_EMAIL;
+  private readonly adminName = process.env.MAIN_NAME;
   constructor(
     private readonly userService: UserService,
     private readonly taskService: TaskService,
@@ -36,6 +37,27 @@ export class AppController {
   ) {}
 
   // ---------------------------- Authentication
+  @Post('auth/signup/:userName/:userEmail')
+  async signUp(
+    @Res({ passthrough: true }) response: Response,
+    @Param('userEmail') userEmail: string,
+    @Param('userName') userName: string,
+  ) {
+    let currRole;
+    if (userEmail === this.adminEmail && userName === this.adminName) {
+      currRole = this.adminRole;
+    } else {
+      currRole = 'User';
+    }
+    response.cookie('Role', currRole);
+    const userData = {
+      email: userEmail,
+      name: userName,
+      role: currRole,
+    };
+    return await this.userService.createUser(userData);
+  }
+
   @Post('auth/login/:userEmail')
   async signIn(
     @Res({ passthrough: true }) response: Response,
@@ -45,24 +67,21 @@ export class AppController {
     if (email) {
       response.cookie('authenticated', true);
     }
+    // NEED REFORMAT THIS CUZ IT LOOKS BAD!!!!!!!!!!!!!!!
+    const query = this.userService
+      .getUser({ email: email })
+      .then((resp) => {
+        const currRole = resp?.role;
+        response.cookie('Role', currRole);
+      })
+      .catch((error) => {
+        throw new NotFoundException(error);
+      });
+
     return await this.authService.signIn(email);
   }
 
   // ---------------------------- Users
-  // @Get('users')
-  // async getAllUsers(@Req() req: Request): Promise<UserModal[] | null> {
-  //   const token = req.cookies['authenticated'];
-  //   if (!token) {
-  //     throw new UnauthorizedException('Token Error! Not Correct token');
-  //   }
-  //
-  //   const query = await this.userService.getAllUsers();
-  //   if (!query) {
-  //     throw new NotFoundException(`Error getting all users!`);
-  //   }
-  //
-  //   return query;
-  // }
   @Get('users')
   async getAllUsers(): Promise<UserModal[] | null> {
     const query = await this.userService.getAllUsers();
@@ -78,16 +97,20 @@ export class AppController {
   @UseGuards(AuthGuard)
   async getUser(
     @Param('userEmail') userEmail: string,
+    @Req() request: Request,
   ): Promise<UserModal | null> {
-    const query = await this.userService.getUser({ email: userEmail });
+    if (request.cookies['Role'] === this.adminRole) {
+      const query = await this.userService.getUser({ email: userEmail });
+      if (!query) {
+        throw new NotFoundException(
+          `Error querying for user: ${userEmail}, please check for correct spelling!`,
+        );
+      }
 
-    if (!query) {
-      throw new NotFoundException(
-        `Error querying for user: ${userEmail}, please check for correct spelling!`,
-      );
+      return query;
+    } else {
+      throw new UnauthorizedException();
     }
-
-    return query;
   }
 
   @Post('user')
